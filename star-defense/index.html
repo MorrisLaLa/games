@@ -64,11 +64,17 @@ function reset() {
   score = 0; wave = 0; waveTimer = 60; spawnLeft = 0; shake = 0;
 }
 
-// ---------- 輸入：手指拖曳，飛船跟隨（有偏移，不被手指擋住） ----------
-let touch = null;
+// ---------- 輸入：右下角虛擬搖桿（大圈裡拖小圈，飛船往同方向飛） ----------
+const JOY = { x: W - 72, y: H - 82, R: 52, grab: 95 };      // 中心、大圈半徑、可點擊範圍
+let touch = null;                                           // { id, dx, dy }，dx/dy 範圍 -1..1
 function pt(e) {
   const r = cv.getBoundingClientRect(), dpr = cv.width / r.width;
   return { x: ((e.clientX - r.left) * dpr - offX) / scale, y: ((e.clientY - r.top) * dpr - offY) / scale };
+}
+function joy(p) {
+  let dx = (p.x - JOY.x) / JOY.R, dy = (p.y - JOY.y) / JOY.R;
+  const m = Math.hypot(dx, dy); if (m > 1) { dx /= m; dy /= m; }
+  touch.dx = Math.abs(dx) < .08 ? 0 : dx; touch.dy = Math.abs(dy) < .08 ? 0 : dy;   // 中間留一小塊死區
 }
 cv.addEventListener('pointerdown', e => {
   e.preventDefault();
@@ -79,14 +85,12 @@ cv.addEventListener('pointerdown', e => {
     if (state === 'title' || t - overAt > 40) { reset(); state = 'play'; }
     return;
   }
-  touch = { id: e.pointerId, sx: p.x, sy: p.y, shx: ship.x, shy: ship.y };
-  cv.setPointerCapture(e.pointerId);
+  if (touch || Math.hypot(p.x - JOY.x, p.y - JOY.y) > JOY.grab) return;
+  touch = { id: e.pointerId, dx: 0, dy: 0 };
+  cv.setPointerCapture(e.pointerId); joy(p);
 });
 cv.addEventListener('pointermove', e => {
-  if (!touch || e.pointerId !== touch.id || state !== 'play') return;
-  const p = pt(e);
-  ship.tx = Math.max(18, Math.min(W - 18, touch.shx + (p.x - touch.sx)));
-  ship.ty = Math.max(60, Math.min(H - 30, touch.shy + (p.y - touch.sy)));
+  if (touch && e.pointerId === touch.id && state === 'play') joy(pt(e));
 });
 const end = e => { if (touch && e.pointerId === touch.id) touch = null; };
 cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
@@ -138,7 +142,10 @@ function update() {
   if (state !== 'play') return;
 
   // 鍵盤
-  if (!touch) {
+  if (touch) {
+    ship.tx = Math.max(18, Math.min(W - 18, ship.x + touch.dx * 9));
+    ship.ty = Math.max(60, Math.min(H - 30, ship.y + touch.dy * 9));
+  } else {
     const sp = 5;
     if (keys.ArrowLeft || keys.a) ship.tx -= sp; if (keys.ArrowRight || keys.d) ship.tx += sp;
     if (keys.ArrowUp || keys.w) ship.ty -= sp; if (keys.ArrowDown || keys.s) ship.ty += sp;
@@ -280,6 +287,14 @@ function draw() {
       }
       if (ship.shield > 0) { ctx.strokeStyle = `rgba(93,184,255,${.4 + .4 * Math.sin(t / 5)})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(ship.x, ship.y, 26, 0, 7); ctx.stroke(); }
     }
+    // 搖桿
+    if (state === 'play') {
+      const kx = JOY.x + (touch ? touch.dx : 0) * JOY.R * .8, ky = JOY.y + (touch ? touch.dy : 0) * JOY.R * .8;
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.fillStyle = 'rgba(255,255,255,.07)';
+      ctx.beginPath(); ctx.arc(JOY.x, JOY.y, JOY.R, 0, 7); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = touch ? 'rgba(78,225,255,.75)' : 'rgba(78,225,255,.45)';
+      ctx.beginPath(); ctx.arc(kx, ky, 24, 0, 7); ctx.fill();
+    }
     // HUD
     text('分數 ' + score, 12, 28, 18, '#fff', 'left');
     text('第 ' + Math.max(1, wave) + ' 波', W / 2, 28, 16, '#9ab');
@@ -293,7 +308,7 @@ function draw() {
   if (state === 'title') {
     text('星際防衛', W / 2, 190, 44, '#4ee1ff');
     drawShip(W / 2, 270 + Math.sin(t / 20) * 8, '#4ee1ff');
-    text('手指在螢幕上拖曳來移動', W / 2, 360, 16, '#cde');
+    text('右下角搖桿控制移動', W / 2, 360, 16, '#cde');
     text('飛船自動射擊・撿道具變強', W / 2, 388, 16, '#cde');
     text('P 火力　+ 補血　S 護盾', W / 2, 416, 15, '#9ab');
     if (t % 60 < 40) text('點一下開始', W / 2, 500, 24, '#ffd93b');
