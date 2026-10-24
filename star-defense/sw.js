@@ -1,5 +1,5 @@
 // 改版時把 VERSION 加一，舊快取會被清掉
-const VERSION = 'v1';
+const VERSION = 'v2';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {

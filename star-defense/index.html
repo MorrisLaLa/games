@@ -12,9 +12,9 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>星際防衛</title>
 <style>
-  html,body{margin:0;height:100%;background:#05060f;overflow:hidden;touch-action:none;
+  html,body{margin:0;height:100%;position:fixed;inset:0;width:100%;overscroll-behavior:none;background:#05060f;overflow:hidden;touch-action:none;
     -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;font-family:system-ui,sans-serif}
-  canvas{display:block;width:100%;height:100%}
+  canvas{display:block;width:100%;height:100%;touch-action:none}
 </style>
 </head>
 <body>
@@ -90,6 +90,10 @@ cv.addEventListener('pointermove', e => {
 });
 const end = e => { if (touch && e.pointerId === touch.id) touch = null; };
 cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
+// 擋掉下拉重新整理／捲動／縮放手勢
+for (const ev of ['touchstart', 'touchmove']) document.addEventListener(ev, e => e.preventDefault(), { passive: false });
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('contextmenu', e => e.preventDefault());
 // 桌機測試用鍵盤
 const keys = {};
 addEventListener('keydown', e => { keys[e.key] = true; if ((e.key === ' ' || e.key === 'Enter') && state !== 'play') { reset(); state = 'play'; } });
